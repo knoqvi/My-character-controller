@@ -37,12 +37,8 @@ public class PlayerControl : MonoBehaviour
     private void PlaneProjection()
     {
         NormalsTransfer();
-
         Vector3 normal = FindMinNormal();
         movement = Vector3.ProjectOnPlane(velocity, normal).normalized;
-
-        
-
     }
     private Vector3 FindMinNormal()
     {
@@ -101,5 +97,4 @@ public class PlayerControl : MonoBehaviour
     {
         GameObjectAndNormals.Remove(collision.gameObject);
     }
-
 }

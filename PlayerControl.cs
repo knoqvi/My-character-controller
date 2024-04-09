@@ -65,7 +65,6 @@ public class PlayerControl : MonoBehaviour
     }
     private void DebugInfo()
     {
-
         debugInfo.text = " ";
         foreach (var value in GameObjectAndNormals)
         {

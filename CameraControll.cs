@@ -5,7 +5,10 @@ public class CameraControll : MonoBehaviour
     public float sensitiveX = 1f;
     public float sensitiveY = 1f;
 
-    [SerializeField] protected GameObject Player;
+    [SerializeField]
+    private Vector3 cameraOffset = new Vector3(0, 0, 0);
+    [SerializeField]
+    private GameObject Player;
 
     private float _xRotate;
     private float _yRotate;
@@ -16,7 +19,7 @@ public class CameraControll : MonoBehaviour
     }
     void Update()
     {
-        transform.position = Player.transform.position;
+        transform.position = Player.transform.position + cameraOffset;
 
         _xRotate += Input.GetAxis("Mouse Y") * sensitiveY;
         _yRotate -= Input.GetAxis("Mouse X") * sensitiveX;

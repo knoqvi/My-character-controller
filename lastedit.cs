@@ -20,15 +20,17 @@ public class PlayerlLogic : MonoBehaviour
     private Vector2 boxCastDirection;
     private float boxCastOffset = 0.01f;
 
-    public float gravityScale = 10f;
     public float jumpHeight = 2f;
-    public float velocityX = 5f;
-    public float velocityY;
+    public float gravity = 5f;
+    private float verticalVelocity = 5f;
 
     private RaycastHit2D closestHit;
     private Vector2 groundNormal;
+
     private float maxSlopeAngle = 45f;
     private bool isGrounded;
+
+    private float distance;
 
     private void OnEnable()
     {
@@ -47,73 +49,23 @@ public class PlayerlLogic : MonoBehaviour
     }
     private void Update()
     {
-        playerBounds = playerCollider.bounds;
-        HandleJumpInput();
-        CheckGround();
+        playerBounds = playerCollider.bounds;   
         DebugGame();
     }
     private void FixedUpdate()
     {
-        GetGroundAlignmentAngle();
-    
-        HandleGravity();
-        HandleMovement(closestHit);
-
+        PlayerGroundCastAlignmentAngle();
+        PlayerGroundCast();
         //PlayerRotate();
-    }
-    private void HandleJumpInput()
-    {
-        if (jumpAction.IsPressed() && isGrounded)
-        {
-            velocityY = Mathf.Sqrt(jumpHeight * -2 * (Physics2D.gravity.y * gravityScale));
-        }
-    }
-    private void HandleGravity()
-    {
-        if (isGrounded && velocityY <= 0)
-        {
-            velocityY = 0f;
-        }
-        else
-        {
-            velocityY += Physics2D.gravity.y * gravityScale * Time.fixedDeltaTime;
-        }
-    }
-    private void HandleMovement(RaycastHit2D groundHit)
-    {
-        Vector2 moveInput = Vector2.right * velocityX;
-        Vector2 velocityVector;
 
-        if (isGrounded)
-        {
-            velocityVector = Vector3.ProjectOnPlane(moveInput, groundNormal);
-            velocityVector += groundNormal * velocityY;
-        }
-        else
-        {
-            velocityVector = moveInput + new Vector2(0, velocityY);
-        }
-
-        Vector2 finalDisplacement = velocityVector * Time.fixedDeltaTime;
-        if (isGrounded && groundHit.collider != null)
-        {
-            float distanceToGround = groundHit.distance;
-
-            if (finalDisplacement.y < -distanceToGround)
-            {
-                finalDisplacement.y = -distanceToGround;
-            }
-        }
-
-        playerRb.MovePosition(playerRb.position + finalDisplacement);
+        Ymovement();
     }
-    private void GetGroundAlignmentAngle()
+    private void Ymovement()
     {
         RaycastHit2D closestHit = new RaycastHit2D();
         Vector2 normal = Vector2.up;
         float minDistance = Mathf.Infinity;
-
-        foreach (RaycastHit2D hit in Physics2D.BoxCastAll(playerBounds.center, new Vector2(1,1), 0f, Vector2.down, supportBoxCastDistance))
+        foreach (RaycastHit2D hit in Physics2D.BoxCastAll(playerBounds.center, transform.localScale, boxCastAngle, Vector2.down, 10f))
         {
             if (hit.collider == playerCollider) continue;
             if (hit.distance < minDistance && Vector2.Angle(Vector2.up, hit.normal) <= maxSlopeAngle)
@@ -123,31 +75,9 @@ public class PlayerlLogic : MonoBehaviour
                 normal = hit.normal;
             }
         }
-        boxCastAngle = Vector2.SignedAngle(Vector2.up, normal);
-        boxCastDirection = -closestHit.normal;
-    }
-    private void CheckGround()
-    {
-        RaycastHit2D closestHit = new RaycastHit2D();
-        Vector2 normal = Vector2.up;
-        float minDistance = Mathf.Infinity;
-        int groundCount = 0;
-
-        foreach (RaycastHit2D hit in Physics2D.BoxCastAll(playerBounds.center, playerBounds.size, boxCastAngle, boxCastDirection, boxCastOffset))
-        {
-            if (hit.collider == playerCollider) continue;
-            if (hit.distance < minDistance && Vector2.Angle(Vector2.up, hit.normal) <= maxSlopeAngle)
-            {
-                minDistance = hit.distance;
-                closestHit = hit;
-                normal = hit.normal;
-                groundCount++;
-            }
-        }
-        groundNormal = normal;
-        isGrounded = groundCount > 0;
-        this.closestHit = closestHit;
-    }
+        float distance = closestHit.distance;
+        this.distance = distance;
+    }   
     private void PlayerRotate()
     {
         float gravity = Physics2D.gravity.y * playerRb.gravityScale;
@@ -169,14 +99,55 @@ public class PlayerlLogic : MonoBehaviour
             transform.Rotate(0f, 0f, -playerRotationSpeed * Time.fixedDeltaTime);
         }
     }
+    private void PlayerGroundCast()
+    {
+        RaycastHit2D closestHit = new RaycastHit2D();
+        Vector2 normal = Vector2.up;
+        float minDistance = Mathf.Infinity;
+        int groundCount = 0;
+
+        foreach (RaycastHit2D hit in Physics2D.BoxCastAll(playerBounds.center, transform.localScale, boxCastAngle, boxCastDirection, boxCastOffset))
+        {
+            if (hit.collider == playerCollider) continue;
+            if (hit.distance < minDistance && Vector2.Angle(Vector2.up, hit.normal) <= maxSlopeAngle)
+            {
+                minDistance = hit.distance;
+                closestHit = hit;
+                normal = hit.normal;
+                groundCount++;
+            }
+        }
+        isGrounded = groundCount > 0;
+    }
+    private void PlayerGroundCastAlignmentAngle()
+    {
+        RaycastHit2D closestHit = new RaycastHit2D();
+        Vector2 normal = Vector2.up;
+        float minDistance = Mathf.Infinity;
+
+        foreach (RaycastHit2D hit in Physics2D.BoxCastAll(playerBounds.center, new Vector2(1, 1), 0f, Vector2.down, supportBoxCastDistance))
+        {
+            if (hit.collider == playerCollider) continue;
+            if (hit.distance < minDistance && Vector2.Angle(Vector2.up, hit.normal) <= maxSlopeAngle)
+            {
+                minDistance = hit.distance;
+                closestHit = hit;
+                normal = hit.normal;
+            }
+        }
+        boxCastAngle = Vector2.SignedAngle(Vector2.up, normal);
+        boxCastDirection = -closestHit.normal;
+    }
     private void DebugGame()
     {
+        Debug.Log(distance);
     }
     private void OnDrawGizmos()
     {
         Bounds boundsForGizmo = playerCollider.bounds;
-        DrawBoxCast2D(boundsForGizmo.center, boundsForGizmo.size, 0f, Vector2.down, supportBoxCastDistance, Color.green);
-        DrawBoxCast2D(boundsForGizmo.center, new Vector2(1, 1), boxCastAngle, Vector2.down, boxCastOffset, Color.red);
+        DrawBoxCast2D(boundsForGizmo.center, transform.localScale, 0f, Vector2.down, supportBoxCastDistance, Color.green);
+        DrawBoxCast2D(boundsForGizmo.center, transform.localScale, boxCastAngle, Vector2.down, boxCastOffset, Color.red);
+        DrawBoxCast2D(playerBounds.center, transform.localScale, boxCastAngle, Vector2.down, 10f, Color.yellow);
     }
     public static void DrawBoxCast2D(Vector2 origin, Vector2 size, float angle, Vector2 direction, float distance, Color color)
     {

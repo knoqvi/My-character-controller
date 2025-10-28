@@ -31,7 +31,11 @@ public class PlayerlLogic : MonoBehaviour
 
     internal bool isDead = false;
 
-    [SerializeField] private LayerMask spikeHitbox;
+    
+    private Orb currentOrb;
+    private enum GravityState { Down, Up };
+    private GravityState gravityState = GravityState.Down;
+    private Vector2 gravityVector;
 
     private void OnEnable()
     {
@@ -62,6 +66,8 @@ public class PlayerlLogic : MonoBehaviour
     private void Update()
     {
         playerBounds = playerCollider.bounds;
+        if (gravityState == GravityState.Down) gravityVector = Vector2.down;
+        if (gravityState == GravityState.Up) gravityVector = Vector2.up;
     }
     private void FixedUpdate()
     {
@@ -74,27 +80,39 @@ public class PlayerlLogic : MonoBehaviour
     }
     private void HitBox()
     {
-        ObstacleHitBox();
+        PlayerHitBox();
         WallHitbox();
         if (isDead)
         {
             SceneManager.LoadScene(SceneManager.GetActiveScene().name);
         }
     }
-    private void ObstacleHitBox()
+    private void PlayerHitBox()
     {
-        foreach(RaycastHit2D hit in Physics2D.BoxCastAll(playerBounds.center, transform.localScale, 0f, Vector2.zero, 0f, spikeHitbox))
+        int orbCount = 0;
+        foreach(RaycastHit2D hit in Physics2D.BoxCastAll(playerBounds.center, transform.localScale, 0f, Vector2.zero, 0f))
         {
             if (hit.collider == playerCollider) continue;
-
-            isDead = true;
+            if (hit.collider.CompareTag("Spike"))
+            {
+                isDead = true;
+            }
+            if (hit.collider.CompareTag("Orb"))
+            {
+                currentOrb = hit.collider.GetComponent<Orb>();
+                orbCount++;
+            }
+        }
+        if (orbCount == 0)
+        {
+            currentOrb = null;
         }
     }
     private void WallHitbox()
     {
         foreach (RaycastHit2D hit in Physics2D.BoxCastAll(playerBounds.center, transform.localScale * 0.25f, 0f, Vector2.zero, 0f))
         {
-            if (hit.collider == playerCollider) continue;
+            if (hit.collider == playerCollider || hit.collider.CompareTag("Orb")) continue;
 
             isDead = true;
         }
@@ -119,35 +137,57 @@ public class PlayerlLogic : MonoBehaviour
         float minDistance = Mathf.Infinity;
         bool foundHit = false;
 
+
         foreach (RaycastHit2D hit in Physics2D.BoxCastAll(playerBounds.center, transform.localScale, boxCastAngle, Vector2.down, 10f))
         {
+            if (hit.collider.isTrigger) continue;
             if (hit.collider == playerCollider) continue;
             if (hit.distance < minDistance && Vector2.Angle(Vector2.up, hit.normal) <= maxSlopeAngle)
-            {
-                minDistance = hit.distance;
-                closestHit = hit;
-                normal = hit.normal;
-                foundHit = true;
+                {
+                    minDistance = hit.distance;
+                    closestHit = hit;
+                    normal = hit.normal;
+                    foundHit = true;
             }
+           
         }
 
         float distance = foundHit ? closestHit.distance : Mathf.Infinity;
-        verticalVelocity += gravity * Time.fixedDeltaTime;
+        verticalVelocity -= gravity * Time.fixedDeltaTime;
 
         float downwardMovement = verticalVelocity * Time.fixedDeltaTime;
-        if (jumpAction.IsPressed() && isGrounded)
+        if (currentOrb != null && jumpAction.IsPressed())
         {
-            verticalVelocity = -Mathf.Sqrt(2 * gravity * jumpHeight);
+            if (currentOrb.type == Orb.OrbType.Black)
+            {
+                verticalVelocity = -Mathf.Sqrt(2 * gravity * -currentOrb.orbJumpHeight);
+            }
+            else
+            {
+                if (currentOrb.orbJumpHeight >= 0)
+                {
+                    verticalVelocity = Mathf.Sqrt(2 * gravity * currentOrb.orbJumpHeight);
+                }
+            }
+            // Пересчитываем смещение после прыжка
             downwardMovement = verticalVelocity * Time.fixedDeltaTime;
         }
-        if (distance < downwardMovement && -verticalVelocity < 0f)
+        else
+        {
+            if (jumpAction.IsPressed() && isGrounded)
+            {
+                verticalVelocity = Mathf.Sqrt(2 * gravity * jumpHeight);
+                downwardMovement = verticalVelocity * Time.fixedDeltaTime;
+            }
+        }
+        if (distance < Mathf.Abs(downwardMovement) && verticalVelocity < 0f)
         {
             verticalVelocity = 0f;
             verticalVector = Vector2.down * distance;
         }
         else
         {
-            verticalVector = Vector2.down * downwardMovement;
+            verticalVector = Vector2.up * downwardMovement;
         }
     }
     private void PlayerRotate()
@@ -181,15 +221,17 @@ public class PlayerlLogic : MonoBehaviour
 
         foreach (RaycastHit2D hit in Physics2D.BoxCastAll(playerBounds.center, transform.localScale, boxCastAngle, boxCastDirection, boxCastOffset))
         {
+            if (hit.collider.isTrigger) continue;
             if (hit.collider == playerCollider) continue;
             if (hit.distance < minDistance && Vector2.Angle(Vector2.up, hit.normal) <= maxSlopeAngle)
             {
-                minDistance = hit.distance;
-                closestHit = hit;
-                normal = hit.normal;
-                groundCount++;
+                    minDistance = hit.distance;
+                    closestHit = hit;
+                    normal = hit.normal;
+                    groundCount++;
             }
         }
+        
         isGrounded = groundCount > 0;
         groundNormal = normal;
     }
@@ -201,13 +243,15 @@ public class PlayerlLogic : MonoBehaviour
 
         foreach (RaycastHit2D hit in Physics2D.BoxCastAll(playerBounds.center, new Vector2(1, 1), 0f, Vector2.down, supportBoxCastDistance))
         {
+            if (hit.collider.isTrigger) continue;
             if (hit.collider == playerCollider) continue;
             if (hit.distance < minDistance && Vector2.Angle(Vector2.up, hit.normal) <= maxSlopeAngle)
             {
-                minDistance = hit.distance;
-                closestHit = hit;
-                normal = hit.normal;
+                    minDistance = hit.distance;
+                    closestHit = hit;
+                    normal = hit.normal;
             }
+            
         }
         boxCastAngle = Vector2.SignedAngle(Vector2.up, normal);
         boxCastDirection = -closestHit.normal;
